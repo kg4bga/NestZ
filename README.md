@@ -1,3 +1,6 @@
+Version 0.012
+Now with drag and drop
+
 How to use
 
 Save the previous Python program as NestZ.pyw.
