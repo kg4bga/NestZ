@@ -9,7 +9,7 @@ echo   Nested ZIP Extractor - Full Setup
 echo ========================================
 echo.
 
-set "SCRIPT_NAME=nested_zip_extractor.py"
+set "SCRIPT_NAME=NestZ.pyw"
 set "SHORTCUT_NAME=Nested ZIP Extractor.lnk"
 set "SCRIPT_DIR=%~dp0"
 set "PYTHON_SCRIPT=%SCRIPT_DIR%%SCRIPT_NAME%"
