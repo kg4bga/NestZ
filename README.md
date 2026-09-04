@@ -3,6 +3,8 @@ Now with drag and drop
 
 How to use
 
+If you have python installed you can just click the file NestZ.pyw
+If not...
 Save the previous Python program as NestZ.pyw.
 Save the code above as NestZ.bat in the same folder.
 Double-click NestZ.bat
