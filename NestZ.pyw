@@ -8,25 +8,26 @@ class NestedZipExtractor:
     def __init__(self, root):
         self.root = root
         self.root.title("Nested ZIP Extractor")
-        self.root.geometry("620x520")
-        self.root.minsize(500, 450)
+        self.root.geometry("640x580")
+        self.root.minsize(520, 500)
 
         # Variables
         self.zip_path = tk.StringVar()
         self.dest_path = tk.StringVar()
-        self.delete_zips = tk.BooleanVar(value=True)  # Default: delete zips
+        self.delete_zips = tk.BooleanVar(value=True)
         self.is_extracting = False
+        self.total_zips = 0
+        self.processed_zips = 0
 
         self.create_widgets()
 
     def create_widgets(self):
-        # Main frame
         main_frame = ttk.Frame(self.root, padding="15")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Title
         title = ttk.Label(main_frame, text="Nested ZIP Extractor", font=("Segoe UI", 16, "bold"))
-        title.pack(pady=(0, 15))
+        title.pack(pady=(0, 12))
 
         # ZIP file selection
         zip_frame = ttk.LabelFrame(main_frame, text="ZIP File", padding="10")
@@ -42,9 +43,9 @@ class NestedZipExtractor:
         ttk.Entry(dest_frame, textvariable=self.dest_path, state="readonly").pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
         ttk.Button(dest_frame, text="Browse...", command=self.browse_dest).pack(side=tk.RIGHT)
 
-        # Toggle switch for deleting ZIP files
+        # Toggle
         toggle_frame = ttk.Frame(main_frame)
-        toggle_frame.pack(fill=tk.X, pady=12)
+        toggle_frame.pack(fill=tk.X, pady=10)
 
         self.delete_check = ttk.Checkbutton(
             toggle_frame,
@@ -53,15 +54,25 @@ class NestedZipExtractor:
         )
         self.delete_check.pack(anchor=tk.W)
 
+        # Progress section
+        progress_frame = ttk.LabelFrame(main_frame, text="Progress", padding="10")
+        progress_frame.pack(fill=tk.X, pady=8)
+
+        self.progress_label = ttk.Label(progress_frame, text="Ready")
+        self.progress_label.pack(anchor=tk.W, pady=(0, 6))
+
+        self.progress = ttk.Progressbar(progress_frame, orient="horizontal", mode="determinate", length=400)
+        self.progress.pack(fill=tk.X)
+
         # Extract button
         self.extract_btn = ttk.Button(main_frame, text="Extract Nested ZIPs", command=self.start_extraction)
-        self.extract_btn.pack(pady=10, ipadx=10, ipady=4)
+        self.extract_btn.pack(pady=12, ipadx=12, ipady=5)
 
-        # Progress / Log area
+        # Log area
         log_frame = ttk.LabelFrame(main_frame, text="Log", padding="8")
         log_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=12, state="disabled", wrap=tk.WORD)
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=11, state="disabled", wrap=tk.WORD)
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
         # Status bar
@@ -76,6 +87,13 @@ class NestedZipExtractor:
         self.log_text.configure(state="disabled")
         self.root.update_idletasks()
 
+    def update_progress(self, value=None, text=None):
+        if value is not None:
+            self.progress["value"] = value
+        if text is not None:
+            self.progress_label.config(text=text)
+        self.root.update_idletasks()
+
     def browse_zip(self):
         path = filedialog.askopenfilename(
             title="Select ZIP file",
@@ -83,7 +101,6 @@ class NestedZipExtractor:
         )
         if path:
             self.zip_path.set(path)
-            # Auto-suggest destination as the folder containing the zip
             if not self.dest_path.get():
                 self.dest_path.set(os.path.dirname(path))
 
@@ -114,26 +131,37 @@ class NestedZipExtractor:
 
         self.is_extracting = True
         self.extract_btn.configure(state="disabled")
-        self.status_var.set("Extracting...")
+        self.status_var.set("Working...")
+        self.progress["value"] = 0
+        self.update_progress(0, "Starting...")
+
         self.log_text.configure(state="normal")
         self.log_text.delete(1.0, tk.END)
         self.log_text.configure(state="disabled")
 
-        # Run extraction in a background thread so the GUI stays responsive
         thread = threading.Thread(target=self.extract_nested, args=(zip_file, dest), daemon=True)
         thread.start()
 
+    def count_nested_zips(self, folder):
+        """Count how many .zip files exist under a folder (for progress)."""
+        count = 0
+        for root, dirs, files in os.walk(folder):
+            for f in files:
+                if f.lower().endswith(".zip"):
+                    count += 1
+        return count
+
     def extract_nested(self, zip_file, to_folder):
-        """Recursively extract nested ZIP files."""
         try:
             self.log(f"Starting extraction of: {os.path.basename(zip_file)}")
             self.log(f"Destination: {to_folder}")
-            self.log("-" * 50)
+            self.log("-" * 55)
 
-            # Extract the main ZIP
+            # --- First extract the main ZIP ---
+            self.update_progress(5, "Extracting main archive...")
             with zipfile.ZipFile(zip_file, 'r') as zf:
                 zf.extractall(path=to_folder)
-            self.log(f"✓ Extracted: {os.path.basename(zip_file)}")
+            self.log(f"✓ Extracted main: {os.path.basename(zip_file)}")
 
             if self.delete_zips.get():
                 try:
@@ -142,47 +170,69 @@ class NestedZipExtractor:
                 except Exception as e:
                     self.log(f"  ⚠ Could not delete original ZIP: {e}")
 
-            # Walk the destination and extract any nested ZIPs
-            extracted_count = 1
+            # Count how many nested zips we now have
+            self.total_zips = self.count_nested_zips(to_folder)
+            self.processed_zips = 0
+
+            if self.total_zips == 0:
+                self.update_progress(100, "Done — no nested ZIPs found")
+                self.log("No nested ZIP files found.")
+            else:
+                self.log(f"Found {self.total_zips} nested ZIP file(s). Processing...")
+                self.update_progress(10, f"Found {self.total_zips} nested ZIP(s)...")
+
+            # --- Process nested ZIPs repeatedly until none remain ---
             while True:
-                found_zip = False
+                found = False
                 for root, dirs, files in os.walk(to_folder):
                     for filename in files:
-                        if filename.lower().endswith('.zip'):
-                            found_zip = True
+                        if filename.lower().endswith(".zip"):
+                            found = True
                             file_path = os.path.join(root, filename)
+
+                            self.processed_zips += 1
+                            percent = 10 + int((self.processed_zips / max(self.total_zips, 1)) * 85)
+                            self.update_progress(percent, f"Extracting ({self.processed_zips}/{self.total_zips}): {filename}")
+
                             try:
-                                self.log(f"Found nested ZIP: {filename}")
+                                self.log(f"→ Extracting nested: {filename}")
                                 with zipfile.ZipFile(file_path, 'r') as zf:
                                     zf.extractall(path=root)
-                                self.log(f"✓ Extracted nested: {filename}")
-                                extracted_count += 1
+                                self.log(f"  ✓ Done: {filename}")
 
                                 if self.delete_zips.get():
                                     os.remove(file_path)
                                     self.log(f"  → Deleted: {filename}")
                             except Exception as e:
-                                self.log(f"✗ Failed to extract {filename}: {e}")
-                if not found_zip:
+                                self.log(f"  ✗ Failed: {filename} — {e}")
+
+                if not found:
                     break
 
-            self.log("-" * 50)
-            self.log(f"Done! Extracted {extracted_count} ZIP archive(s).")
-            self.status_var.set("Extraction completed successfully")
-            messagebox.showinfo("Success", f"Extraction finished!\n\nExtracted {extracted_count} ZIP archive(s).")
+                # Re-count in case deeper nesting appeared
+                remaining = self.count_nested_zips(to_folder)
+                if remaining > 0:
+                    self.total_zips = self.processed_zips + remaining
+
+            self.update_progress(100, "Extraction complete!")
+            self.log("-" * 55)
+            self.log(f"Finished! Processed {self.processed_zips} nested ZIP archive(s).")
+            self.status_var.set("Completed successfully")
+            messagebox.showinfo("Success", f"Extraction finished!\n\nProcessed {self.processed_zips} nested ZIP(s).")
 
         except Exception as e:
             self.log(f"✗ Error: {e}")
             self.status_var.set("Error occurred")
+            self.update_progress(0, "Failed")
             messagebox.showerror("Error", f"Extraction failed:\n{e}")
 
         finally:
             self.is_extracting = False
             self.root.after(0, lambda: self.extract_btn.configure(state="normal"))
 
+
 if __name__ == "__main__":
     root = tk.Tk()
-    # Optional: use a modern theme if available
     try:
         style = ttk.Style()
         if "clam" in style.theme_names():
