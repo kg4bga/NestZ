@@ -3,6 +3,7 @@ How to use
 Save the previous Python program as NestZ.pyw.
 Save the code above as NestZ.bat in the same folder.
 Double-click NestZ.bat
+New version with Progress Bar
 
 What the script does
 Checks that NestZ.pyw is next to the .bat
