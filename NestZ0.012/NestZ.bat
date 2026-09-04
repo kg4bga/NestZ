@@ -19,7 +19,7 @@ echo.
 :: ----------------------------------------------------------
 :: Configuration - change these if needed
 :: ----------------------------------------------------------
-set "SCRIPT_NAME=nested_zip_extractor.py"
+set "SCRIPT_NAME=NestZ.pyw"
 set "SHORTCUT_NAME=Nested ZIP Extractor.lnk"
 set "PYTHON_VERSION=3.12.7"
 set "PYTHON_INSTALLER=python-%PYTHON_VERSION%-amd64.exe"
